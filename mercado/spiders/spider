@@ -1,0 +1,47 @@
+import scrapy
+from xml.etree.ElementPath import _Callback
+from scrapy.spiders import CrawlSpider, Rule
+from scrapy.linkextractors import LinkExtractor
+from scrapy.exceptions import CloseSpider
+from mercado.items import MercadoItem
+
+class MercadoSpider(CrawlSpider):
+    name = 'mercado'
+    item_count = 0 # cuando lleguemos a determinados productos
+    #se detendrá
+    allowed_domain = ['www.mercadolibre.com.mx']
+    start_urls = ['https://listado.mercadolibre.com.mx/computacion/impresion/impresoras']
+
+    rules = {
+        #regla para pasar pagina
+        Rule(LinkExtractor(allow = (), restrict_xpaths= ('//li[@class = "andes-pagination__button andes-pagination__button--next shops__pagination-button"]/a'))),
+        #regla para hacer click en cada impresora
+        Rule(LinkExtractor(allow = (), restrict_xpaths= ( //div[@class = "ui-search-item__group ui-search-item__group--title shops__items-group"]')),
+                            callback = 'parse_item', follow = False),
+    }
+    def parse_item(self, response):
+        ml_item = MercadoItem()
+        #info de producto
+        ml_item['titulo'] = response.xpath('normalize-space(//*[@id="ui-pdp-main-container"]/div[1]/div/div[1]/div[2]/div[1]/div/div[2]/h1)').extract()
+        ml_item['voltaje'] = response.xpath('normalize-space(//*[@id="picker-label-VOLTAGE"]/span)').extract()
+        ml_item['precio'] = response.xpath('normalize-space(//*[@id="ui-pdp-main-container"]/div[1]/div/div[1]/div[2]/div[3]/div[1]/span[1]/span[3])').extract()
+        ml_item['condicion'] = response.xpath('normalize-space(//*[@id="ui-pdp-main-container"]/div[1]/div/div[1]/div[2]/div[1]/div/div[1]/span)').extract()
+        ml_item['envio'] = response.xpath('normalize-space(//*[@id="buybox-form"]/div[1]/div/p[1])').extract()
+        ml_item['stock'] = response.xpath('normalize-space(//*[@id="buybox-form"]/div[3]/p)').extract()
+        ml_item['opiniones'] = response.xpath('normalize-space(//*[@id="reviews-capability.desktop"]/section/div[2]/div[1]/article/div/div[1]/div[1]/p/text())').extract()
+        ml_item['ventas_producto'] = response.xpath('normalize-space(//*[@id="buybox-form"]/div[2]/div/div/p/text())').extract()
+        #info de la tienda o vendedor
+        ml_item['vendedor_url'] = response.xpath('normalize-space(//*[@id="ui-pdp-main-container"]/div[2]/div/div[2]/div[1]/a/@href)').extract()
+        ml_item['tipo_vendedor'] = response.xpath('normalize-space(//*[@id="ui-pdp-main-container"]/div[2]/div/div[2]/div[1]/div/div[2]/div/p[1])').extract()
+        ml_item['reputacion'] = response.xpath('normalize-space()').extract()
+        ml_item['ventas_vendedor'] = response.xpath('normalize-space()').extract()
+        self.item_count += 1
+        if self.item_count > 20:
+            raise CloseSpider('item_exceeded')
+        yield ml_item
+
+
+
+
+    
+
